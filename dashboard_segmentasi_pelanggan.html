@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buku Besar Pelanggan — Segmentasi RFM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDEFEA;
+    --paper-alt:#E3E6DF;
+    --ink:#1B2A33;
+    --ink-soft:#4C5D66;
+    --rule:#C7CCC3;
+    --champions:#B8862B;
+    --promising:#2C7A70;
+    --atrisk:#C1651A;
+    --lost:#A63D40;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px;}
+
+  /* Masthead */
+  .masthead{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    border-bottom:3px solid var(--ink);padding-bottom:18px;margin-bottom:6px;
+  }
+  .masthead h1{
+    font-family:'Zilla Slab',serif;font-weight:700;font-size:2.4rem;
+    margin:0;letter-spacing:-0.01em;
+  }
+  .masthead .eyebrow{
+    font-family:'IBM Plex Mono',monospace;font-size:0.72rem;letter-spacing:0.12em;
+    text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px;
+  }
+  .masthead .stamp{
+    font-family:'IBM Plex Mono',monospace;font-size:0.78rem;text-align:right;
+    color:var(--ink-soft);line-height:1.5;
+  }
+  .stamp b{color:var(--ink);}
+  .subrule{
+    display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;
+    font-size:0.72rem;color:var(--ink-soft);padding:8px 0 34px;border-bottom:1px solid var(--rule);
+  }
+
+  /* Segment ticket cards */
+  .tickets{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin:30px 0 44px;
+  }
+  .ticket{
+    background:var(--paper-alt);border:1px solid var(--rule);border-radius:2px;
+    padding:18px 18px 16px;position:relative;cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .ticket:hover{transform:translateY(-2px);box-shadow:0 6px 14px rgba(27,42,51,0.08);}
+  .ticket.active{background:var(--ink);color:var(--paper);}
+  .ticket .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:8px;}
+  .ticket .name{font-family:'Zilla Slab',serif;font-weight:600;font-size:1.05rem;}
+  .ticket .pct{
+    font-family:'IBM Plex Mono',monospace;font-size:2rem;font-weight:600;margin:10px 0 2px;
+  }
+  .ticket .count{font-family:'IBM Plex Mono',monospace;font-size:0.74rem;color:var(--ink-soft);}
+  .ticket.active .count{color:#C7CCC3;}
+  .ticket .cut{
+    position:absolute;bottom:-1px;left:0;right:0;height:1px;
+    background:repeating-linear-gradient(90deg, var(--rule) 0 6px, transparent 6px 12px);
+  }
+  .ticket .metrics{
+    display:flex;gap:14px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--rule);
+    font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--ink-soft);
+  }
+  .ticket.active .metrics{border-top-color:#4C5D66;color:#C7CCC3;}
+  .ticket .metrics div b{display:block;color:var(--ink);font-size:0.85rem;}
+  .ticket.active .metrics div b{color:var(--paper);}
+
+  /* Section headers */
+  .section-head{
+    display:flex;align-items:baseline;gap:12px;margin:48px 0 18px;
+  }
+  .section-head .no{font-family:'IBM Plex Mono',monospace;color:var(--ink-soft);font-size:0.85rem;}
+  .section-head h2{font-family:'Zilla Slab',serif;font-weight:600;font-size:1.3rem;margin:0;}
+  .section-head .line{flex:1;height:1px;background:var(--rule);}
+
+  /* Chart panels */
+  .panels{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;}
+  .panel{background:var(--paper-alt);border:1px solid var(--rule);border-radius:2px;padding:20px;}
+  .panel h3{
+    font-family:'IBM Plex Mono',monospace;font-size:0.72rem;text-transform:uppercase;
+    letter-spacing:0.08em;color:var(--ink-soft);margin:0 0 14px;
+  }
+  svg{width:100%;height:auto;display:block;}
+  .axis-label{font-family:'IBM Plex Mono',monospace;font-size:10px;fill:var(--ink-soft);}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--ink-soft);}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .legend .sw{width:9px;height:9px;border-radius:50%;}
+
+  .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+  .bar-row .label{width:150px;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;flex-shrink:0;}
+  .bar-track{flex:1;background:var(--paper);border:1px solid var(--rule);height:22px;position:relative;}
+  .bar-fill{height:100%;}
+  .bar-row .val{width:90px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--ink-soft);flex-shrink:0;}
+
+  /* Table */
+  table{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:0.78rem;}
+  thead th{
+    text-align:left;padding:10px 12px;border-bottom:2px solid var(--ink);
+    font-size:0.68rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-soft);
+  }
+  tbody td{padding:9px 12px;border-bottom:1px solid var(--rule);}
+  tbody tr:hover{background:var(--paper-alt);}
+  .seg-tag{display:inline-flex;align-items:center;gap:6px;}
+  .seg-tag .dot{width:8px;height:8px;border-radius:50%;}
+
+  footer{
+    margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);
+    font-family:'IBM Plex Mono',monospace;font-size:0.68rem;color:var(--ink-soft);
+    display:flex;justify-content:space-between;
+  }
+
+  @media(max-width:820px){
+    .tickets{grid-template-columns:repeat(2,1fr);}
+    .panels{grid-template-columns:1fr;}
+    .masthead{flex-direction:column;align-items:flex-start;gap:10px;}
+    .masthead .stamp{text-align:left;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="masthead">
+    <div>
+      <div class="eyebrow">Dashboard Business Intelligence — Prototipe</div>
+      <h1>Buku Besar Segmentasi Pelanggan</h1>
+    </div>
+    <div class="stamp">
+      METODE: <b>RFM + K-MEANS (k=4)</b><br>
+      SUMBER: <b>ONLINE RETAIL II</b><br>
+      SILHOUETTE: <b>0.365</b> · DBI: <b>0.930</b>
+    </div>
+  </div>
+  <div class="subrule">
+    <span id="totalCust">— PELANGGAN</span>
+    <span id="totalRev">— TOTAL NILAI TRANSAKSI</span>
+    <span>PERIODE 01/12/2009 – 09/12/2011</span>
+  </div>
+
+  <div class="tickets" id="tickets"></div>
+
+  <div class="section-head"><span class="no">01</span><h2>Peta Recency × Monetary</h2><div class="line"></div></div>
+  <div class="panels">
+    <div class="panel">
+      <h3>Sebaran Pelanggan (ukuran titik = Frequency)</h3>
+      <svg id="scatter" viewBox="0 0 560 340"></svg>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="panel">
+      <h3>Kontribusi Pendapatan per Segmen</h3>
+      <div id="barChart" style="margin-top:6px;"></div>
+    </div>
+  </div>
+
+  <div class="section-head"><span class="no">02</span><h2>Rincian per Segmen</h2><div class="line"></div></div>
+  <div class="panel">
+    <table>
+      <thead>
+        <tr><th>Segmen</th><th>Jumlah Pelanggan</th><th>% dari Total</th><th>Recency Rata²</th><th>Frequency Rata²</th><th>Monetary Rata²</th><th>Total Revenue</th></tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <footer>
+    <span>DIBUAT UNTUK: RANCANG BANGUN DASHBOARD BI — SEGMENTASI PELANGGAN E-COMMERCE (CP/TA)</span>
+    <span>KLIK KARTU SEGMEN UNTUK MENYARING DATA</span>
+  </footer>
+</div>
+
+<script>
+const SUMMARY = [{"Segmen":"At Risk","Recency":230.1,"Frequency":5.1,"Monetary":1948.5,"Jumlah":1459,"Persentase":24.8,"TotalRevenue":2842867.0},{"Segmen":"Champions","Recency":27.7,"Frequency":19.3,"Monetary":10731.2,"Jumlah":1196,"Persentase":20.3,"TotalRevenue":12834471.0},{"Segmen":"Lost\/Churned","Recency":394.9,"Frequency":1.4,"Monetary":317.1,"Jumlah":1973,"Persentase":33.6,"TotalRevenue":625602.0},{"Segmen":"Promising\/New Active","Recency":28.3,"Frequency":3.1,"Monetary":857.5,"Jumlah":1250,"Persentase":21.3,"TotalRevenue":1071864.0}];
+const SCATTER = [{"Recency":25,"Frequency":3,"Monetary":647.56,"Segmen":"Promising\/New Active"},{"Recency":15,"Frequency":14,"Monetary":3513.62,"Segmen":"Champions"},{"Recency":47,"Frequency":2,"Monetary":1161.5,"Segmen":"Promising\/New Active"},{"Recency":576,"Frequency":2,"Monetary":209.57,"Segmen":"Lost\/Churned"},{"Recency":652,"Frequency":1,"Monetary":292.62,"Segmen":"Lost\/Churned"},{"Recency":39,"Frequency":2,"Monetary":692.19,"Segmen":"Promising\/New Active"},{"Recency":9,"Frequency":21,"Monetary":5115.76,"Segmen":"Champions"},{"Recency":207,"Frequency":4,"Monetary":1192.36,"Segmen":"At Risk"},{"Recency":584,"Frequency":1,"Monetary":728.84,"Segmen":"Lost\/Churned"},{"Recency":281,"Frequency":3,"Monetary":613.75,"Segmen":"At Risk"},{"Recency":18,"Frequency":9,"Monetary":1569.73,"Segmen":"Champions"},{"Recency":15,"Frequency":2,"Monetary":413.05,"Segmen":"Promising\/New Active"},{"Recency":659,"Frequency":1,"Monetary":37.5,"Segmen":"Lost\/Churned"},{"Recency":37,"Frequency":1,"Monetary":754.64,"Segmen":"Promising\/New Active"},{"Recency":677,"Frequency":1,"Monetary":129.75,"Segmen":"Lost\/Churned"},{"Recency":174,"Frequency":1,"Monetary":191.94,"Segmen":"Lost\/Churned"},{"Recency":53,"Frequency":1,"Monetary":917.34,"Segmen":"Promising\/New Active"},{"Recency":88,"Frequency":9,"Monetary":6204.32,"Segmen":"Champions"},{"Recency":74,"Frequency":3,"Monetary":787.52,"Segmen":"Promising\/New Active"},{"Recency":472,"Frequency":2,"Monetary":271.75,"Segmen":"Lost\/Churned"},{"Recency":410,"Frequency":4,"Monetary":1254.41,"Segmen":"At Risk"},{"Recency":173,"Frequency":5,"Monetary":620.89,"Segmen":"At Risk"},{"Recency":237,"Frequency":1,"Monetary":232.48,"Segmen":"Lost\/Churned"},{"Recency":87,"Frequency":1,"Monetary":112.08,"Segmen":"Lost\/Churned"},{"Recency":188,"Frequency":6,"Monetary":1514.81,"Segmen":"At Risk"},{"Recency":47,"Frequency":4,"Monetary":673.26,"Segmen":"Promising\/New Active"},{"Recency":214,"Frequency":4,"Monetary":702.6,"Segmen":"At Risk"},{"Recency":24,"Frequency":6,"Monetary":2332.74,"Segmen":"Promising\/New Active"},{"Recency":110,"Frequency":9,"Monetary":1093.5,"Segmen":"At Risk"},{"Recency":66,"Frequency":1,"Monetary":373.94,"Segmen":"Lost\/Churned"},{"Recency":29,"Frequency":2,"Monetary":1360.99,"Segmen":"Promising\/New Active"},{"Recency":645,"Frequency":1,"Monetary":70.0,"Segmen":"Lost\/Churned"},{"Recency":413,"Frequency":3,"Monetary":1791.15,"Segmen":"At Risk"},{"Recency":400,"Frequency":4,"Monetary":1941.12,"Segmen":"At Risk"},{"Recency":19,"Frequency":2,"Monetary":609.89,"Segmen":"Promising\/New Active"},{"Recency":499,"Frequency":1,"Monetary":400.2,"Segmen":"Lost\/Churned"},{"Recency":415,"Frequency":4,"Monetary":1110.83,"Segmen":"At Risk"},{"Recency":380,"Frequency":4,"Monetary":1227.54,"Segmen":"At Risk"},{"Recency":257,"Frequency":1,"Monetary":88.2,"Segmen":"Lost\/Churned"},{"Recency":4,"Frequency":3,"Monetary":342.45,"Segmen":"Promising\/New Active"},{"Recency":59,"Frequency":9,"Monetary":1146.53,"Segmen":"At Risk"},{"Recency":169,"Frequency":8,"Monetary":1738.16,"Segmen":"At Risk"},{"Recency":43,"Frequency":2,"Monetary":657.3,"Segmen":"Promising\/New Active"},{"Recency":106,"Frequency":3,"Monetary":149.05,"Segmen":"Lost\/Churned"},{"Recency":4,"Frequency":10,"Monetary":2448.64,"Segmen":"Champions"},{"Recency":358,"Frequency":1,"Monetary":76.55,"Segmen":"Lost\/Churned"},{"Recency":81,"Frequency":1,"Monetary":358.0,"Segmen":"Lost\/Churned"},{"Recency":313,"Frequency":2,"Monetary":788.81,"Segmen":"Lost\/Churned"},{"Recency":1,"Frequency":5,"Monetary":1952.45,"Segmen":"Promising\/New Active"},{"Recency":10,"Frequency":28,"Monetary":11202.59,"Segmen":"Champions"},{"Recency":39,"Frequency":2,"Monetary":206.34,"Segmen":"Promising\/New Active"},{"Recency":422,"Frequency":6,"Monetary":1552.35,"Segmen":"At Risk"},{"Recency":19,"Frequency":1,"Monetary":371.2,"Segmen":"Promising\/New Active"},{"Recency":417,"Frequency":2,"Monetary":880.97,"Segmen":"Lost\/Churned"},{"Recency":411,"Frequency":2,"Monetary":880.62,"Segmen":"Lost\/Churned"},{"Recency":10,"Frequency":14,"Monetary":2910.23,"Segmen":"Champions"},{"Recency":29,"Frequency":15,"Monetary":3260.24,"Segmen":"Champions"},{"Recency":100,"Frequency":7,"Monetary":2939.55,"Segmen":"At Risk"},{"Recency":392,"Frequency":7,"Monetary":942.75,"Segmen":"At Risk"},{"Recency":473,"Frequency":6,"Monetary":1027.03,"Segmen":"At Risk"},{"Recency":722,"Frequency":1,"Monetary":252.59,"Segmen":"Lost\/Churned"},{"Recency":407,"Frequency":1,"Monetary":81.15,"Segmen":"Lost\/Churned"},{"Recency":1,"Frequency":2,"Monetary":252.49,"Segmen":"Promising\/New Active"},{"Recency":79,"Frequency":7,"Monetary":2970.97,"Segmen":"At Risk"},{"Recency":4,"Frequency":2,"Monetary":935.05,"Segmen":"Promising\/New Active"},{"Recency":395,"Frequency":1,"Monetary":1331.38,"Segmen":"Lost\/Churned"},{"Recency":104,"Frequency":9,"Monetary":2118.72,"Segmen":"At Risk"},{"Recency":15,"Frequency":8,"Monetary":2485.97,"Segmen":"Champions"},{"Recency":56,"Frequency":8,"Monetary":4278.96,"Segmen":"Champions"},{"Recency":593,"Frequency":1,"Monetary":235.88,"Segmen":"Lost\/Churned"},{"Recency":32,"Frequency":10,"Monetary":2016.98,"Segmen":"Champions"},{"Recency":463,"Frequency":2,"Monetary":83.0,"Segmen":"Lost\/Churned"},{"Recency":11,"Frequency":66,"Monetary":10360.67,"Segmen":"Champions"},{"Recency":107,"Frequency":1,"Monetary":17.0,"Segmen":"Lost\/Churned"},{"Recency":552,"Frequency":7,"Monetary":2753.52,"Segmen":"At Risk"},{"Recency":3,"Frequency":24,"Monetary":15677.82,"Segmen":"Champions"},{"Recency":54,"Frequency":6,"Monetary":4412.56,"Segmen":"At Risk"},{"Recency":592,"Frequency":3,"Monetary":229.46,"Segmen":"Lost\/Churned"},{"Recency":123,"Frequency":7,"Monetary":2715.28,"Segmen":"At Risk"},{"Recency":86,"Frequency":6,"Monetary":2475.23,"Segmen":"At Risk"},{"Recency":432,"Frequency":1,"Monetary":509.04,"Segmen":"Lost\/Churned"},{"Recency":66,"Frequency":5,"Monetary":1200.2,"Segmen":"At Risk"},{"Recency":597,"Frequency":2,"Monetary":451.73,"Segmen":"Lost\/Churned"},{"Recency":128,"Frequency":6,"Monetary":1456.66,"Segmen":"At Risk"},{"Recency":10,"Frequency":3,"Monetary":102.45,"Segmen":"Promising\/New Active"},{"Recency":241,"Frequency":7,"Monetary":1762.61,"Segmen":"At Risk"},{"Recency":51,"Frequency":2,"Monetary":1163.45,"Segmen":"Promising\/New Active"},{"Recency":95,"Frequency":5,"Monetary":1508.18,"Segmen":"At Risk"},{"Recency":411,"Frequency":2,"Monetary":487.03,"Segmen":"Lost\/Churned"},{"Recency":60,"Frequency":2,"Monetary":894.41,"Segmen":"Promising\/New Active"},{"Recency":221,"Frequency":1,"Monetary":446.62,"Segmen":"Lost\/Churned"},{"Recency":114,"Frequency":2,"Monetary":437.42,"Segmen":"Lost\/Churned"},{"Recency":79,"Frequency":2,"Monetary":307.76,"Segmen":"Lost\/Churned"},{"Recency":610,"Frequency":1,"Monetary":17.65,"Segmen":"Lost\/Churned"},{"Recency":1,"Frequency":6,"Monetary":2409.04,"Segmen":"Champions"},{"Recency":311,"Frequency":1,"Monetary":154.41,"Segmen":"Lost\/Churned"},{"Recency":195,"Frequency":2,"Monetary":1345.21,"Segmen":"At Risk"},{"Recency":653,"Frequency":1,"Monetary":82.4,"Segmen":"Lost\/Churned"},{"Recency":386,"Frequency":1,"Monetary":491.81,"Segmen":"Lost\/Churned"},{"Recency":10,"Frequency":156,"Monetary":313437.62,"Segmen":"Champions"},{"Recency":14,"Frequency":5,"Monetary":1698.07,"Segmen":"Promising\/New Active"},{"Recency":57,"Frequency":10,"Monetary":3541.77,"Segmen":"Champions"},{"Recency":247,"Frequency":2,"Monetary":1052.9,"Segmen":"At Risk"},{"Recency":30,"Frequency":2,"Monetary":354.42,"Segmen":"Promising\/New Active"},{"Recency":24,"Frequency":3,"Monetary":1225.36,"Segmen":"Promising\/New Active"},{"Recency":52,"Frequency":3,"Monetary":743.11,"Segmen":"Promising\/New Active"},{"Recency":527,"Frequency":1,"Monetary":358.15,"Segmen":"Lost\/Churned"},{"Recency":375,"Frequency":3,"Monetary":570.18,"Segmen":"Lost\/Churned"},{"Recency":18,"Frequency":2,"Monetary":616.26,"Segmen":"Promising\/New Active"},{"Recency":647,"Frequency":2,"Monetary":842.4,"Segmen":"Lost\/Churned"},{"Recency":155,"Frequency":6,"Monetary":1517.36,"Segmen":"At Risk"},{"Recency":394,"Frequency":1,"Monetary":419.7,"Segmen":"Lost\/Churned"},{"Recency":50,"Frequency":5,"Monetary":1817.52,"Segmen":"At Risk"},{"Recency":113,"Frequency":6,"Monetary":2821.08,"Segmen":"At Risk"},{"Recency":23,"Frequency":3,"Monetary":306.46,"Segmen":"Promising\/New Active"},{"Recency":267,"Frequency":5,"Monetary":3365.86,"Segmen":"At Risk"},{"Recency":1,"Frequency":3,"Monetary":1071.73,"Segmen":"Promising\/New Active"},{"Recency":65,"Frequency":7,"Monetary":2416.9,"Segmen":"At Risk"},{"Recency":395,"Frequency":1,"Monetary":80.28,"Segmen":"Lost\/Churned"},{"Recency":372,"Frequency":2,"Monetary":623.0,"Segmen":"Lost\/Churned"},{"Recency":85,"Frequency":4,"Monetary":299.18,"Segmen":"Promising\/New Active"},{"Recency":128,"Frequency":12,"Monetary":8304.82,"Segmen":"Champions"},{"Recency":31,"Frequency":5,"Monetary":2647.59,"Segmen":"Promising\/New Active"},{"Recency":723,"Frequency":1,"Monetary":338.46,"Segmen":"Lost\/Churned"},{"Recency":486,"Frequency":1,"Monetary":30.6,"Segmen":"Lost\/Churned"},{"Recency":435,"Frequency":1,"Monetary":579.85,"Segmen":"Lost\/Churned"},{"Recency":266,"Frequency":1,"Monetary":118.75,"Segmen":"Lost\/Churned"},{"Recency":239,"Frequency":2,"Monetary":413.08,"Segmen":"Lost\/Churned"},{"Recency":437,"Frequency":2,"Monetary":500.92,"Segmen":"Lost\/Churned"},{"Recency":8,"Frequency":38,"Monetary":25119.54,"Segmen":"Champions"},{"Recency":9,"Frequency":8,"Monetary":2547.55,"Segmen":"Champions"},{"Recency":33,"Frequency":6,"Monetary":3634.84,"Segmen":"Champions"},{"Recency":9,"Frequency":2,"Monetary":1463.04,"Segmen":"Promising\/New Active"},{"Recency":398,"Frequency":2,"Monetary":153.52,"Segmen":"Lost\/Churned"},{"Recency":405,"Frequency":2,"Monetary":399.95,"Segmen":"Lost\/Churned"},{"Recency":243,"Frequency":1,"Monetary":239.49,"Segmen":"Lost\/Churned"},{"Recency":596,"Frequency":3,"Monetary":815.69,"Segmen":"At Risk"},{"Recency":159,"Frequency":2,"Monetary":665.78,"Segmen":"Lost\/Churned"},{"Recency":28,"Frequency":11,"Monetary":2000.01,"Segmen":"Champions"},{"Recency":437,"Frequency":6,"Monetary":2100.09,"Segmen":"At Risk"},{"Recency":735,"Frequency":1,"Monetary":429.66,"Segmen":"Lost\/Churned"},{"Recency":53,"Frequency":1,"Monetary":188.88,"Segmen":"Lost\/Churned"},{"Recency":5,"Frequency":5,"Monetary":1105.88,"Segmen":"Promising\/New Active"},{"Recency":379,"Frequency":1,"Monetary":188.46,"Segmen":"Lost\/Churned"},{"Recency":138,"Frequency":2,"Monetary":612.6,"Segmen":"Lost\/Churned"},{"Recency":23,"Frequency":5,"Monetary":2099.54,"Segmen":"Promising\/New Active"},{"Recency":18,"Frequency":4,"Monetary":779.05,"Segmen":"Promising\/New Active"},{"Recency":41,"Frequency":1,"Monetary":114.11,"Segmen":"Lost\/Churned"},{"Recency":39,"Frequency":3,"Monetary":650.41,"Segmen":"Promising\/New Active"},{"Recency":729,"Frequency":1,"Monetary":204.26,"Segmen":"Lost\/Churned"},{"Recency":22,"Frequency":12,"Monetary":3445.32,"Segmen":"Champions"},{"Recency":378,"Frequency":4,"Monetary":788.46,"Segmen":"At Risk"},{"Recency":44,"Frequency":1,"Monetary":449.45,"Segmen":"Promising\/New Active"},{"Recency":183,"Frequency":3,"Monetary":409.04,"Segmen":"Lost\/Churned"},{"Recency":555,"Frequency":1,"Monetary":103.95,"Segmen":"Lost\/Churned"},{"Recency":14,"Frequency":16,"Monetary":10159.64,"Segmen":"Champions"},{"Recency":3,"Frequency":20,"Monetary":11578.65,"Segmen":"Champions"},{"Recency":61,"Frequency":1,"Monetary":557.62,"Segmen":"Promising\/New Active"},{"Recency":215,"Frequency":3,"Monetary":776.46,"Segmen":"At Risk"},{"Recency":185,"Frequency":6,"Monetary":1120.31,"Segmen":"At Risk"},{"Recency":185,"Frequency":3,"Monetary":1180.23,"Segmen":"At Risk"},{"Recency":278,"Frequency":1,"Monetary":328.8,"Segmen":"Lost\/Churned"},{"Recency":52,"Frequency":5,"Monetary":3469.3,"Segmen":"At Risk"},{"Recency":253,"Frequency":5,"Monetary":1153.85,"Segmen":"At Risk"},{"Recency":59,"Frequency":10,"Monetary":3805.34,"Segmen":"Champions"},{"Recency":38,"Frequency":29,"Monetary":7006.65,"Segmen":"Champions"},{"Recency":9,"Frequency":17,"Monetary":11126.11,"Segmen":"Champions"},{"Recency":65,"Frequency":2,"Monetary":777.01,"Segmen":"Promising\/New Active"},{"Recency":178,"Frequency":6,"Monetary":1101.44,"Segmen":"At Risk"},{"Recency":469,"Frequency":9,"Monetary":2016.71,"Segmen":"At Risk"},{"Recency":18,"Frequency":6,"Monetary":1766.72,"Segmen":"Promising\/New Active"},{"Recency":376,"Frequency":4,"Monetary":244.37,"Segmen":"Lost\/Churned"},{"Recency":388,"Frequency":1,"Monetary":110.7,"Segmen":"Lost\/Churned"},{"Recency":322,"Frequency":2,"Monetary":402.2,"Segmen":"Lost\/Churned"},{"Recency":11,"Frequency":54,"Monetary":20395.34,"Segmen":"Champions"},{"Recency":277,"Frequency":1,"Monetary":197.0,"Segmen":"Lost\/Churned"},{"Recency":31,"Frequency":10,"Monetary":2156.77,"Segmen":"Champions"},{"Recency":584,"Frequency":1,"Monetary":1126.0,"Segmen":"Lost\/Churned"},{"Recency":3,"Frequency":11,"Monetary":2521.4,"Segmen":"Champions"},{"Recency":536,"Frequency":1,"Monetary":98.7,"Segmen":"Lost\/Churned"},{"Recency":32,"Frequency":6,"Monetary":1572.55,"Segmen":"Promising\/New Active"},{"Recency":429,"Frequency":4,"Monetary":474.1,"Segmen":"At Risk"},{"Recency":145,"Frequency":7,"Monetary":2864.97,"Segmen":"At Risk"},{"Recency":51,"Frequency":8,"Monetary":1071.14,"Segmen":"At Risk"},{"Recency":7,"Frequency":6,"Monetary":2050.08,"Segmen":"Promising\/New Active"},{"Recency":692,"Frequency":5,"Monetary":6798.72,"Segmen":"At Risk"},{"Recency":5,"Frequency":3,"Monetary":469.48,"Segmen":"Promising\/New Active"},{"Recency":89,"Frequency":3,"Monetary":1090.59,"Segmen":"At Risk"},{"Recency":236,"Frequency":2,"Monetary":854.99,"Segmen":"At Risk"},{"Recency":87,"Frequency":6,"Monetary":2867.86,"Segmen":"At Risk"},{"Recency":70,"Frequency":1,"Monetary":443.05,"Segmen":"Lost\/Churned"},{"Recency":409,"Frequency":2,"Monetary":607.0,"Segmen":"Lost\/Churned"},{"Recency":7,"Frequency":10,"Monetary":1825.03,"Segmen":"Champions"},{"Recency":67,"Frequency":4,"Monetary":1077.81,"Segmen":"At Risk"},{"Recency":31,"Frequency":15,"Monetary":8056.76,"Segmen":"Champions"},{"Recency":11,"Frequency":1,"Monetary":527.2,"Segmen":"Promising\/New Active"},{"Recency":3,"Frequency":26,"Monetary":13014.8,"Segmen":"Champions"},{"Recency":4,"Frequency":9,"Monetary":6897.36,"Segmen":"Champions"},{"Recency":267,"Frequency":2,"Monetary":1597.76,"Segmen":"At Risk"},{"Recency":7,"Frequency":2,"Monetary":3192.54,"Segmen":"Promising\/New Active"},{"Recency":70,"Frequency":7,"Monetary":3764.39,"Segmen":"At Risk"},{"Recency":284,"Frequency":1,"Monetary":94.05,"Segmen":"Lost\/Churned"},{"Recency":692,"Frequency":1,"Monetary":136.8,"Segmen":"Lost\/Churned"},{"Recency":58,"Frequency":4,"Monetary":501.56,"Segmen":"Promising\/New Active"},{"Recency":20,"Frequency":8,"Monetary":4757.8,"Segmen":"Champions"},{"Recency":414,"Frequency":1,"Monetary":205.75,"Segmen":"Lost\/Churned"},{"Recency":71,"Frequency":6,"Monetary":875.15,"Segmen":"At Risk"},{"Recency":120,"Frequency":8,"Monetary":1038.92,"Segmen":"At Risk"},{"Recency":75,"Frequency":2,"Monetary":708.26,"Segmen":"Promising\/New Active"},{"Recency":135,"Frequency":4,"Monetary":1508.0,"Segmen":"At Risk"},{"Recency":227,"Frequency":2,"Monetary":632.07,"Segmen":"Lost\/Churned"},{"Recency":374,"Frequency":9,"Monetary":2011.82,"Segmen":"At Risk"},{"Recency":17,"Frequency":4,"Monetary":2062.67,"Segmen":"Promising\/New Active"},{"Recency":93,"Frequency":6,"Monetary":2796.1,"Segmen":"At Risk"},{"Recency":519,"Frequency":3,"Monetary":376.46,"Segmen":"Lost\/Churned"},{"Recency":49,"Frequency":2,"Monetary":677.72,"Segmen":"Promising\/New Active"},{"Recency":23,"Frequency":5,"Monetary":1917.41,"Segmen":"Promising\/New Active"},{"Recency":437,"Frequency":3,"Monetary":1179.45,"Segmen":"At Risk"},{"Recency":10,"Frequency":2,"Monetary":144.91,"Segmen":"Promising\/New Active"},{"Recency":4,"Frequency":16,"Monetary":3616.41,"Segmen":"Champions"},{"Recency":61,"Frequency":1,"Monetary":104.82,"Segmen":"Lost\/Churned"},{"Recency":353,"Frequency":1,"Monetary":383.7,"Segmen":"Lost\/Churned"},{"Recency":3,"Frequency":9,"Monetary":4385.98,"Segmen":"Champions"},{"Recency":8,"Frequency":14,"Monetary":7404.65,"Segmen":"Champions"},{"Recency":16,"Frequency":56,"Monetary":13754.58,"Segmen":"Champions"},{"Recency":424,"Frequency":1,"Monetary":494.85,"Segmen":"Lost\/Churned"},{"Recency":22,"Frequency":3,"Monetary":648.89,"Segmen":"Promising\/New Active"},{"Recency":176,"Frequency":16,"Monetary":3435.5,"Segmen":"At Risk"},{"Recency":23,"Frequency":19,"Monetary":13370.86,"Segmen":"Champions"},{"Recency":547,"Frequency":1,"Monetary":216.4,"Segmen":"Lost\/Churned"},{"Recency":2,"Frequency":151,"Monetary":528602.52,"Segmen":"Champions"},{"Recency":22,"Frequency":3,"Monetary":825.8,"Segmen":"Promising\/New Active"},{"Recency":127,"Frequency":7,"Monetary":1703.02,"Segmen":"At Risk"},{"Recency":73,"Frequency":1,"Monetary":144.2,"Segmen":"Lost\/Churned"},{"Recency":549,"Frequency":2,"Monetary":1127.45,"Segmen":"At Risk"},{"Recency":30,"Frequency":2,"Monetary":887.67,"Segmen":"Promising\/New Active"},{"Recency":15,"Frequency":1,"Monetary":256.11,"Segmen":"Promising\/New Active"},{"Recency":464,"Frequency":3,"Monetary":275.4,"Segmen":"Lost\/Churned"},{"Recency":529,"Frequency":2,"Monetary":406.07,"Segmen":"Lost\/Churned"},{"Recency":408,"Frequency":2,"Monetary":1272.8,"Segmen":"At Risk"},{"Recency":367,"Frequency":3,"Monetary":680.62,"Segmen":"At Risk"},{"Recency":225,"Frequency":2,"Monetary":792.15,"Segmen":"At Risk"},{"Recency":5,"Frequency":3,"Monetary":729.33,"Segmen":"Promising\/New Active"},{"Recency":38,"Frequency":1,"Monetary":921.37,"Segmen":"Promising\/New Active"},{"Recency":54,"Frequency":2,"Monetary":257.32,"Segmen":"Promising\/New Active"},{"Recency":650,"Frequency":1,"Monetary":189.63,"Segmen":"Lost\/Churned"},{"Recency":394,"Frequency":1,"Monetary":70.8,"Segmen":"Lost\/Churned"},{"Recency":223,"Frequency":6,"Monetary":1649.81,"Segmen":"At Risk"},{"Recency":68,"Frequency":8,"Monetary":1567.48,"Segmen":"At Risk"},{"Recency":177,"Frequency":1,"Monetary":455.3,"Segmen":"Lost\/Churned"},{"Recency":499,"Frequency":1,"Monetary":196.25,"Segmen":"Lost\/Churned"},{"Recency":521,"Frequency":2,"Monetary":191.86,"Segmen":"Lost\/Churned"},{"Recency":47,"Frequency":11,"Monetary":3090.29,"Segmen":"Champions"},{"Recency":23,"Frequency":6,"Monetary":3364.59,"Segmen":"Champions"},{"Recency":2,"Frequency":15,"Monetary":4243.86,"Segmen":"Champions"},{"Recency":243,"Frequency":2,"Monetary":379.73,"Segmen":"Lost\/Churned"},{"Recency":424,"Frequency":1,"Monetary":261.35,"Segmen":"Lost\/Churned"},{"Recency":519,"Frequency":1,"Monetary":231.34,"Segmen":"Lost\/Churned"},{"Recency":50,"Frequency":3,"Monetary":1160.72,"Segmen":"Promising\/New Active"},{"Recency":426,"Frequency":2,"Monetary":717.85,"Segmen":"Lost\/Churned"},{"Recency":122,"Frequency":16,"Monetary":9275.49,"Segmen":"Champions"},{"Recency":64,"Frequency":9,"Monetary":5728.82,"Segmen":"Champions"},{"Recency":249,"Frequency":1,"Monetary":12.75,"Segmen":"Lost\/Churned"},{"Recency":397,"Frequency":1,"Monetary":263.38,"Segmen":"Lost\/Churned"},{"Recency":8,"Frequency":3,"Monetary":1509.09,"Segmen":"Promising\/New Active"},{"Recency":1,"Frequency":4,"Monetary":1260.86,"Segmen":"Promising\/New Active"},{"Recency":60,"Frequency":9,"Monetary":5973.23,"Segmen":"Champions"},{"Recency":10,"Frequency":2,"Monetary":300.83,"Segmen":"Promising\/New Active"},{"Recency":610,"Frequency":1,"Monetary":433.72,"Segmen":"Lost\/Churned"},{"Recency":17,"Frequency":15,"Monetary":9371.71,"Segmen":"Champions"},{"Recency":409,"Frequency":1,"Monetary":259.09,"Segmen":"Lost\/Churned"},{"Recency":313,"Frequency":2,"Monetary":472.13,"Segmen":"Lost\/Churned"},{"Recency":189,"Frequency":6,"Monetary":1000.27,"Segmen":"At Risk"},{"Recency":52,"Frequency":8,"Monetary":4252.89,"Segmen":"Champions"},{"Recency":237,"Frequency":2,"Monetary":630.43,"Segmen":"Lost\/Churned"},{"Recency":11,"Frequency":5,"Monetary":622.01,"Segmen":"Promising\/New Active"},{"Recency":66,"Frequency":7,"Monetary":1821.02,"Segmen":"At Risk"},{"Recency":130,"Frequency":1,"Monetary":406.09,"Segmen":"Lost\/Churned"},{"Recency":16,"Frequency":8,"Monetary":1550.65,"Segmen":"Champions"},{"Recency":149,"Frequency":3,"Monetary":1732.47,"Segmen":"At Risk"},{"Recency":75,"Frequency":6,"Monetary":2596.93,"Segmen":"At Risk"},{"Recency":74,"Frequency":2,"Monetary":408.63,"Segmen":"Promising\/New Active"},{"Recency":50,"Frequency":8,"Monetary":1980.56,"Segmen":"At Risk"},{"Recency":31,"Frequency":11,"Monetary":3170.98,"Segmen":"Champions"},{"Recency":18,"Frequency":20,"Monetary":7521.8,"Segmen":"Champions"},{"Recency":469,"Frequency":1,"Monetary":450.16,"Segmen":"Lost\/Churned"},{"Recency":680,"Frequency":1,"Monetary":231.32,"Segmen":"Lost\/Churned"},{"Recency":732,"Frequency":1,"Monetary":323.39,"Segmen":"Lost\/Churned"},{"Recency":10,"Frequency":4,"Monetary":862.18,"Segmen":"Promising\/New Active"},{"Recency":430,"Frequency":1,"Monetary":314.67,"Segmen":"Lost\/Churned"},{"Recency":20,"Frequency":11,"Monetary":2429.83,"Segmen":"Champions"},{"Recency":80,"Frequency":6,"Monetary":13925.93,"Segmen":"Champions"},{"Recency":432,"Frequency":1,"Monetary":171.15,"Segmen":"Lost\/Churned"},{"Recency":1,"Frequency":37,"Monetary":11380.1,"Segmen":"Champions"},{"Recency":359,"Frequency":1,"Monetary":80.64,"Segmen":"Lost\/Churned"},{"Recency":394,"Frequency":1,"Monetary":1248.42,"Segmen":"Lost\/Churned"},{"Recency":200,"Frequency":1,"Monetary":339.6,"Segmen":"Lost\/Churned"},{"Recency":4,"Frequency":6,"Monetary":1286.27,"Segmen":"Promising\/New Active"},{"Recency":58,"Frequency":3,"Monetary":1156.73,"Segmen":"Promising\/New Active"},{"Recency":373,"Frequency":3,"Monetary":737.05,"Segmen":"At Risk"},{"Recency":733,"Frequency":2,"Monetary":207.85,"Segmen":"Lost\/Churned"},{"Recency":696,"Frequency":1,"Monetary":658.95,"Segmen":"Lost\/Churned"},{"Recency":19,"Frequency":2,"Monetary":570.48,"Segmen":"Promising\/New Active"},{"Recency":309,"Frequency":2,"Monetary":280.53,"Segmen":"Lost\/Churned"},{"Recency":309,"Frequency":3,"Monetary":895.47,"Segmen":"At Risk"},{"Recency":645,"Frequency":2,"Monetary":348.75,"Segmen":"Lost\/Churned"},{"Recency":5,"Frequency":2,"Monetary":644.95,"Segmen":"Promising\/New Active"},{"Recency":15,"Frequency":8,"Monetary":2399.57,"Segmen":"Champions"},{"Recency":265,"Frequency":1,"Monetary":138.68,"Segmen":"Lost\/Churned"},{"Recency":16,"Frequency":2,"Monetary":1212.66,"Segmen":"Promising\/New Active"},{"Recency":75,"Frequency":1,"Monetary":544.08,"Segmen":"Lost\/Churned"},{"Recency":12,"Frequency":36,"Monetary":11650.85,"Segmen":"Champions"},{"Recency":94,"Frequency":16,"Monetary":2157.97,"Segmen":"Champions"},{"Recency":197,"Frequency":1,"Monetary":271.85,"Segmen":"Lost\/Churned"},{"Recency":105,"Frequency":12,"Monetary":5345.55,"Segmen":"Champions"},{"Recency":590,"Frequency":1,"Monetary":339.75,"Segmen":"Lost\/Churned"},{"Recency":4,"Frequency":1,"Monetary":312.62,"Segmen":"Promising\/New Active"},{"Recency":41,"Frequency":6,"Monetary":2287.7,"Segmen":"At Risk"},{"Recency":9,"Frequency":6,"Monetary":1933.48,"Segmen":"Promising\/New Active"},{"Recency":464,"Frequency":4,"Monetary":382.06,"Segmen":"Lost\/Churned"},{"Recency":312,"Frequency":7,"Monetary":2363.89,"Segmen":"At Risk"},{"Recency":318,"Frequency":1,"Monetary":157.02,"Segmen":"Lost\/Churned"},{"Recency":11,"Frequency":22,"Monetary":16410.15,"Segmen":"Champions"},{"Recency":98,"Frequency":4,"Monetary":786.57,"Segmen":"At Risk"},{"Recency":1,"Frequency":7,"Monetary":754.75,"Segmen":"Promising\/New Active"},{"Recency":17,"Frequency":23,"Monetary":14205.96,"Segmen":"Champions"},{"Recency":72,"Frequency":1,"Monetary":224.14,"Segmen":"Lost\/Churned"},{"Recency":178,"Frequency":6,"Monetary":1507.26,"Segmen":"At Risk"},{"Recency":682,"Frequency":1,"Monetary":21.0,"Segmen":"Lost\/Churned"},{"Recency":23,"Frequency":9,"Monetary":6620.48,"Segmen":"Champions"},{"Recency":626,"Frequency":1,"Monetary":241.9,"Segmen":"Lost\/Churned"},{"Recency":75,"Frequency":2,"Monetary":1000.39,"Segmen":"Promising\/New Active"},{"Recency":22,"Frequency":7,"Monetary":1274.01,"Segmen":"Promising\/New Active"},{"Recency":3,"Frequency":7,"Monetary":988.42,"Segmen":"Promising\/New Active"},{"Recency":4,"Frequency":1,"Monetary":329.36,"Segmen":"Promising\/New Active"},{"Recency":74,"Frequency":5,"Monetary":1666.86,"Segmen":"At Risk"},{"Recency":68,"Frequency":2,"Monetary":1378.4,"Segmen":"Promising\/New Active"},{"Recency":31,"Frequency":6,"Monetary":3042.47,"Segmen":"Champions"},{"Recency":28,"Frequency":2,"Monetary":384.52,"Segmen":"Promising\/New Active"},{"Recency":32,"Frequency":4,"Monetary":4387.64,"Segmen":"At Risk"},{"Recency":423,"Frequency":2,"Monetary":282.85,"Segmen":"Lost\/Churned"},{"Recency":477,"Frequency":3,"Monetary":285.41,"Segmen":"Lost\/Churned"},{"Recency":15,"Frequency":14,"Monetary":3902.01,"Segmen":"Champions"},{"Recency":60,"Frequency":2,"Monetary":675.69,"Segmen":"Promising\/New Active"},{"Recency":593,"Frequency":1,"Monetary":360.85,"Segmen":"Lost\/Churned"},{"Recency":383,"Frequency":5,"Monetary":1222.04,"Segmen":"At Risk"},{"Recency":11,"Frequency":1,"Monetary":247.32,"Segmen":"Promising\/New Active"},{"Recency":725,"Frequency":1,"Monetary":310.43,"Segmen":"Lost\/Churned"},{"Recency":287,"Frequency":4,"Monetary":511.25,"Segmen":"At Risk"},{"Recency":66,"Frequency":4,"Monetary":619.8,"Segmen":"Promising\/New Active"},{"Recency":22,"Frequency":4,"Monetary":754.12,"Segmen":"Promising\/New Active"},{"Recency":57,"Frequency":5,"Monetary":1616.54,"Segmen":"At Risk"},{"Recency":117,"Frequency":2,"Monetary":524.54,"Segmen":"Lost\/Churned"},{"Recency":620,"Frequency":1,"Monetary":30.1,"Segmen":"Lost\/Churned"},{"Recency":734,"Frequency":1,"Monetary":130.32,"Segmen":"Lost\/Churned"},{"Recency":437,"Frequency":3,"Monetary":1404.68,"Segmen":"At Risk"},{"Recency":600,"Frequency":1,"Monetary":150.0,"Segmen":"Lost\/Churned"},{"Recency":2,"Frequency":5,"Monetary":1070.71,"Segmen":"Promising\/New Active"},{"Recency":47,"Frequency":12,"Monetary":3597.5,"Segmen":"Champions"},{"Recency":299,"Frequency":5,"Monetary":4756.74,"Segmen":"At Risk"},{"Recency":18,"Frequency":12,"Monetary":2203.24,"Segmen":"Champions"},{"Recency":10,"Frequency":2,"Monetary":77.4,"Segmen":"Promising\/New Active"},{"Recency":50,"Frequency":16,"Monetary":3206.54,"Segmen":"Champions"},{"Recency":431,"Frequency":1,"Monetary":307.95,"Segmen":"Lost\/Churned"},{"Recency":88,"Frequency":2,"Monetary":955.94,"Segmen":"At Risk"},{"Recency":12,"Frequency":16,"Monetary":5703.52,"Segmen":"Champions"},{"Recency":74,"Frequency":13,"Monetary":8891.84,"Segmen":"Champions"},{"Recency":290,"Frequency":3,"Monetary":1224.18,"Segmen":"At Risk"},{"Recency":39,"Frequency":107,"Monetary":117763.62,"Segmen":"Champions"},{"Recency":446,"Frequency":2,"Monetary":306.19,"Segmen":"Lost\/Churned"},{"Recency":85,"Frequency":3,"Monetary":1492.81,"Segmen":"At Risk"},{"Recency":18,"Frequency":7,"Monetary":3204.16,"Segmen":"Champions"},{"Recency":6,"Frequency":2,"Monetary":664.11,"Segmen":"Promising\/New Active"},{"Recency":303,"Frequency":5,"Monetary":861.01,"Segmen":"At Risk"},{"Recency":257,"Frequency":6,"Monetary":1453.68,"Segmen":"At Risk"},{"Recency":75,"Frequency":4,"Monetary":322.41,"Segmen":"Promising\/New Active"},{"Recency":627,"Frequency":1,"Monetary":222.22,"Segmen":"Lost\/Churned"},{"Recency":73,"Frequency":13,"Monetary":6948.23,"Segmen":"Champions"},{"Recency":212,"Frequency":2,"Monetary":1522.75,"Segmen":"At Risk"},{"Recency":659,"Frequency":1,"Monetary":307.3,"Segmen":"Lost\/Churned"},{"Recency":66,"Frequency":2,"Monetary":711.5,"Segmen":"Promising\/New Active"},{"Recency":2,"Frequency":13,"Monetary":2753.29,"Segmen":"Champions"},{"Recency":6,"Frequency":3,"Monetary":663.81,"Segmen":"Promising\/New Active"},{"Recency":110,"Frequency":1,"Monetary":52.0,"Segmen":"Lost\/Churned"},{"Recency":113,"Frequency":1,"Monetary":371.56,"Segmen":"Lost\/Churned"},{"Recency":232,"Frequency":1,"Monetary":1079.4,"Segmen":"Lost\/Churned"},{"Recency":35,"Frequency":3,"Monetary":557.94,"Segmen":"Promising\/New Active"},{"Recency":485,"Frequency":1,"Monetary":157.7,"Segmen":"Lost\/Churned"},{"Recency":736,"Frequency":1,"Monetary":204.3,"Segmen":"Lost\/Churned"},{"Recency":12,"Frequency":47,"Monetary":8987.68,"Segmen":"Champions"},{"Recency":67,"Frequency":9,"Monetary":3706.02,"Segmen":"Champions"},{"Recency":29,"Frequency":2,"Monetary":585.27,"Segmen":"Promising\/New Active"},{"Recency":35,"Frequency":8,"Monetary":1617.1,"Segmen":"At Risk"},{"Recency":2,"Frequency":7,"Monetary":2768.83,"Segmen":"Champions"},{"Recency":16,"Frequency":9,"Monetary":2317.43,"Segmen":"Champions"},{"Recency":44,"Frequency":3,"Monetary":940.8,"Segmen":"Promising\/New Active"},{"Recency":27,"Frequency":3,"Monetary":1250.06,"Segmen":"Promising\/New Active"},{"Recency":544,"Frequency":1,"Monetary":225.4,"Segmen":"Lost\/Churned"},{"Recency":408,"Frequency":3,"Monetary":740.76,"Segmen":"At Risk"},{"Recency":32,"Frequency":8,"Monetary":4013.08,"Segmen":"Champions"},{"Recency":520,"Frequency":1,"Monetary":113.65,"Segmen":"Lost\/Churned"},{"Recency":23,"Frequency":13,"Monetary":5796.52,"Segmen":"Champions"},{"Recency":82,"Frequency":4,"Monetary":1620.22,"Segmen":"At Risk"},{"Recency":35,"Frequency":6,"Monetary":1915.68,"Segmen":"At Risk"},{"Recency":22,"Frequency":6,"Monetary":2724.84,"Segmen":"Champions"},{"Recency":206,"Frequency":12,"Monetary":4884.68,"Segmen":"At Risk"},{"Recency":72,"Frequency":10,"Monetary":1486.2,"Segmen":"At Risk"},{"Recency":253,"Frequency":1,"Monetary":85.0,"Segmen":"Lost\/Churned"},{"Recency":24,"Frequency":10,"Monetary":3649.36,"Segmen":"Champions"},{"Recency":5,"Frequency":11,"Monetary":5184.84,"Segmen":"Champions"},{"Recency":675,"Frequency":1,"Monetary":195.55,"Segmen":"Lost\/Churned"},{"Recency":12,"Frequency":6,"Monetary":1657.87,"Segmen":"Promising\/New Active"},{"Recency":391,"Frequency":2,"Monetary":504.14,"Segmen":"Lost\/Churned"},{"Recency":384,"Frequency":2,"Monetary":497.04,"Segmen":"Lost\/Churned"},{"Recency":330,"Frequency":2,"Monetary":437.05,"Segmen":"Lost\/Churned"},{"Recency":137,"Frequency":1,"Monetary":200.47,"Segmen":"Lost\/Churned"},{"Recency":607,"Frequency":1,"Monetary":303.63,"Segmen":"Lost\/Churned"},{"Recency":600,"Frequency":1,"Monetary":228.96,"Segmen":"Lost\/Churned"},{"Recency":437,"Frequency":1,"Monetary":136.65,"Segmen":"Lost\/Churned"},{"Recency":165,"Frequency":4,"Monetary":470.83,"Segmen":"At Risk"},{"Recency":22,"Frequency":43,"Monetary":15407.61,"Segmen":"Champions"},{"Recency":134,"Frequency":1,"Monetary":244.8,"Segmen":"Lost\/Churned"},{"Recency":274,"Frequency":3,"Monetary":812.5,"Segmen":"At Risk"},{"Recency":170,"Frequency":4,"Monetary":541.9,"Segmen":"At Risk"},{"Recency":405,"Frequency":1,"Monetary":147.35,"Segmen":"Lost\/Churned"},{"Recency":2,"Frequency":5,"Monetary":1581.84,"Segmen":"Promising\/New Active"},{"Recency":4,"Frequency":116,"Monetary":15704.6,"Segmen":"Champions"},{"Recency":731,"Frequency":1,"Monetary":234.38,"Segmen":"Lost\/Churned"},{"Recency":423,"Frequency":3,"Monetary":3698.05,"Segmen":"At Risk"},{"Recency":16,"Frequency":2,"Monetary":1015.58,"Segmen":"Promising\/New Active"},{"Recency":599,"Frequency":1,"Monetary":178.85,"Segmen":"Lost\/Churned"},{"Recency":205,"Frequency":8,"Monetary":1826.0,"Segmen":"At Risk"},{"Recency":7,"Frequency":1,"Monetary":171.42,"Segmen":"Promising\/New Active"},{"Recency":2,"Frequency":11,"Monetary":3586.03,"Segmen":"Champions"},{"Recency":377,"Frequency":17,"Monetary":3959.49,"Segmen":"At Risk"},{"Recency":32,"Frequency":3,"Monetary":921.25,"Segmen":"Promising\/New Active"},{"Recency":23,"Frequency":6,"Monetary":1101.97,"Segmen":"Promising\/New Active"},{"Recency":281,"Frequency":2,"Monetary":397.15,"Segmen":"Lost\/Churned"},{"Recency":11,"Frequency":22,"Monetary":11468.83,"Segmen":"Champions"},{"Recency":28,"Frequency":3,"Monetary":811.23,"Segmen":"Promising\/New Active"},{"Recency":90,"Frequency":9,"Monetary":3460.32,"Segmen":"At Risk"},{"Recency":17,"Frequency":1,"Monetary":199.48,"Segmen":"Promising\/New Active"},{"Recency":7,"Frequency":53,"Monetary":17286.73,"Segmen":"Champions"},{"Recency":7,"Frequency":24,"Monetary":4528.54,"Segmen":"Champions"},{"Recency":414,"Frequency":1,"Monetary":515.78,"Segmen":"Lost\/Churned"},{"Recency":42,"Frequency":1,"Monetary":318.15,"Segmen":"Promising\/New Active"},{"Recency":217,"Frequency":4,"Monetary":725.53,"Segmen":"At Risk"},{"Recency":606,"Frequency":1,"Monetary":2622.481,"Segmen":"At Risk"},{"Recency":1,"Frequency":5,"Monetary":1200.28,"Segmen":"Promising\/New Active"},{"Recency":368,"Frequency":6,"Monetary":690.83,"Segmen":"At Risk"},{"Recency":298,"Frequency":1,"Monetary":3.75,"Segmen":"Lost\/Churned"},{"Recency":24,"Frequency":2,"Monetary":328.4,"Segmen":"Promising\/New Active"},{"Recency":18,"Frequency":11,"Monetary":3174.75,"Segmen":"Champions"},{"Recency":106,"Frequency":1,"Monetary":138.14,"Segmen":"Lost\/Churned"},{"Recency":428,"Frequency":2,"Monetary":546.25,"Segmen":"Lost\/Churned"},{"Recency":4,"Frequency":4,"Monetary":2157.4,"Segmen":"Promising\/New Active"},{"Recency":68,"Frequency":1,"Monetary":415.2,"Segmen":"Lost\/Churned"},{"Recency":410,"Frequency":3,"Monetary":340.94,"Segmen":"Lost\/Churned"},{"Recency":225,"Frequency":3,"Monetary":1027.22,"Segmen":"At Risk"},{"Recency":2,"Frequency":33,"Monetary":9720.67,"Segmen":"Champions"},{"Recency":415,"Frequency":3,"Monetary":839.73,"Segmen":"At Risk"},{"Recency":4,"Frequency":1,"Monetary":120.03,"Segmen":"Promising\/New Active"},{"Recency":2,"Frequency":54,"Monetary":35058.46,"Segmen":"Champions"},{"Recency":331,"Frequency":1,"Monetary":197.65,"Segmen":"Lost\/Churned"},{"Recency":30,"Frequency":13,"Monetary":3968.67,"Segmen":"Champions"},{"Recency":72,"Frequency":1,"Monetary":100.8,"Segmen":"Lost\/Churned"},{"Recency":38,"Frequency":5,"Monetary":822.57,"Segmen":"Promising\/New Active"},{"Recency":2,"Frequency":23,"Monetary":5297.77,"Segmen":"Champions"},{"Recency":117,"Frequency":7,"Monetary":9903.24,"Segmen":"At Risk"},{"Recency":551,"Frequency":1,"Monetary":242.06,"Segmen":"Lost\/Churned"},{"Recency":38,"Frequency":8,"Monetary":1856.59,"Segmen":"At Risk"},{"Recency":369,"Frequency":4,"Monetary":717.39,"Segmen":"At Risk"},{"Recency":654,"Frequency":2,"Monetary":9530.08,"Segmen":"At Risk"},{"Recency":396,"Frequency":1,"Monetary":75.0,"Segmen":"Lost\/Churned"},{"Recency":109,"Frequency":7,"Monetary":2064.71,"Segmen":"At Risk"},{"Recency":17,"Frequency":12,"Monetary":4318.48,"Segmen":"Champions"},{"Recency":53,"Frequency":5,"Monetary":1800.07,"Segmen":"At Risk"},{"Recency":379,"Frequency":1,"Monetary":207.33,"Segmen":"Lost\/Churned"},{"Recency":112,"Frequency":9,"Monetary":734.81,"Segmen":"At Risk"},{"Recency":169,"Frequency":5,"Monetary":790.0,"Segmen":"At Risk"},{"Recency":59,"Frequency":16,"Monetary":8543.57,"Segmen":"Champions"},{"Recency":669,"Frequency":1,"Monetary":93.35,"Segmen":"Lost\/Churned"},{"Recency":7,"Frequency":44,"Monetary":39019.51,"Segmen":"Champions"},{"Recency":170,"Frequency":1,"Monetary":237.61,"Segmen":"Lost\/Churned"},{"Recency":1,"Frequency":2,"Monetary":347.75,"Segmen":"Promising\/New Active"},{"Recency":144,"Frequency":6,"Monetary":1603.99,"Segmen":"At Risk"},{"Recency":1,"Frequency":3,"Monetary":563.94,"Segmen":"Promising\/New Active"},{"Recency":110,"Frequency":2,"Monetary":552.0,"Segmen":"Lost\/Churned"},{"Recency":107,"Frequency":1,"Monetary":51.56,"Segmen":"Lost\/Churned"},{"Recency":8,"Frequency":1,"Monetary":144.0,"Segmen":"Promising\/New Active"},{"Recency":3,"Frequency":3,"Monetary":648.26,"Segmen":"Promising\/New Active"},{"Recency":67,"Frequency":1,"Monetary":452.89,"Segmen":"Promising\/New Active"},{"Recency":11,"Frequency":13,"Monetary":5476.5,"Segmen":"Champions"},{"Recency":502,"Frequency":3,"Monetary":1687.8,"Segmen":"At Risk"},{"Recency":130,"Frequency":4,"Monetary":1918.49,"Segmen":"At Risk"},{"Recency":204,"Frequency":2,"Monetary":639.5,"Segmen":"Lost\/Churned"},{"Recency":33,"Frequency":4,"Monetary":776.851,"Segmen":"Promising\/New Active"},{"Recency":74,"Frequency":2,"Monetary":234.34,"Segmen":"Lost\/Churned"},{"Recency":309,"Frequency":3,"Monetary":1013.71,"Segmen":"At Risk"},{"Recency":78,"Frequency":4,"Monetary":2321.11,"Segmen":"At Risk"}];
+
+const COLORS = {
+  'Champions': getComputedStyle(document.documentElement).getPropertyValue('--champions').trim(),
+  'Promising/New Active': getComputedStyle(document.documentElement).getPropertyValue('--promising').trim(),
+  'At Risk': getComputedStyle(document.documentElement).getPropertyValue('--atrisk').trim(),
+  'Lost/Churned': getComputedStyle(document.documentElement).getPropertyValue('--lost').trim(),
+};
+const ORDER = ['Champions','Promising/New Active','At Risk','Lost/Churned'];
+
+let activeSegment = null;
+
+function fmtGBP(n){
+  return '£' + Math.round(n).toLocaleString('en-GB');
+}
+function fmtNum(n){
+  return Math.round(n).toLocaleString('en-GB');
+}
+
+function renderTotals(){
+  const totalCust = SUMMARY.reduce((a,s)=>a+s.Jumlah,0);
+  const totalRev = SUMMARY.reduce((a,s)=>a+s.TotalRevenue,0);
+  document.getElementById('totalCust').textContent = fmtNum(totalCust) + ' PELANGGAN';
+  document.getElementById('totalRev').textContent = fmtGBP(totalRev) + ' TOTAL NILAI TRANSAKSI';
+}
+
+function renderTickets(){
+  const el = document.getElementById('tickets');
+  el.innerHTML = '';
+  ORDER.forEach(name=>{
+    const s = SUMMARY.find(x=>x.Segmen===name);
+    const card = document.createElement('div');
+    card.className = 'ticket' + (activeSegment===name ? ' active':'');
+    card.innerHTML = `
+      <div class="name"><span class="dot" style="background:${COLORS[name]}"></span>${name}</div>
+      <div class="pct">${s.Persentase}%</div>
+      <div class="count">${fmtNum(s.Jumlah)} PELANGGAN</div>
+      <div class="metrics">
+        <div>R<b>${s.Recency}h</b></div>
+        <div>F<b>${s.Frequency}×</b></div>
+        <div>M<b>${fmtGBP(s.Monetary)}</b></div>
+      </div>
+      <div class="cut"></div>
+    `;
+    card.onclick = ()=>{ activeSegment = activeSegment===name ? null : name; renderAll(); };
+    el.appendChild(card);
+  });
+}
+
+function renderScatter(){
+  const svg = document.getElementById('scatter');
+  const W=560,H=340,M={l:44,r:14,t:14,b:36};
+  const data = SCATTER.filter(d=>!activeSegment || d.Segmen===activeSegment);
+
+  const maxR = 750, maxM = Math.max(...SCATTER.map(d=>d.Monetary)) * 1.05;
+  const xScale = v => M.l + (v/maxR)*(W-M.l-M.r);
+  const yScale = v => H-M.b - (Math.log1p(v)/Math.log1p(maxM))*(H-M.t-M.b);
+  const rScale = v => 2.5 + Math.sqrt(v)*0.9;
+
+  let gridlines = '';
+  [0,150,300,450,600,750].forEach(gx=>{
+    const x = xScale(gx);
+    gridlines += `<line x1="${x}" y1="${M.t}" x2="${x}" y2="${H-M.b}" stroke="#C7CCC3" stroke-width="1" opacity="0.5"/>`;
+    gridlines += `<text class="axis-label" x="${x}" y="${H-M.b+16}" text-anchor="middle">${gx}</text>`;
+  });
+  [10,100,1000,10000,100000].forEach(gy=>{
+    if(gy>maxM*1.2) return;
+    const y = yScale(gy);
+    gridlines += `<line x1="${M.l}" y1="${y}" x2="${W-M.r}" y2="${y}" stroke="#C7CCC3" stroke-width="1" opacity="0.5"/>`;
+    gridlines += `<text class="axis-label" x="${M.l-6}" y="${y+3}" text-anchor="end">£${gy>=1000?(gy/1000)+'k':gy}</text>`;
+  });
+
+  let points = '';
+  data.forEach(d=>{
+    points += `<circle cx="${xScale(d.Recency).toFixed(1)}" cy="${yScale(d.Monetary).toFixed(1)}" r="${rScale(d.Frequency).toFixed(1)}" fill="${COLORS[d.Segmen]}" opacity="0.55" stroke="${COLORS[d.Segmen]}" stroke-width="0.6"/>`;
+  });
+
+  svg.innerHTML = `
+    ${gridlines}
+    <text class="axis-label" x="${(W)/2}" y="${H-4}" text-anchor="middle" font-size="11">Recency (hari sejak transaksi terakhir)</text>
+    <text class="axis-label" x="14" y="${H/2}" text-anchor="middle" font-size="11" transform="rotate(-90 14 ${H/2})">Monetary (skala log)</text>
+    ${points}
+  `;
+
+  const legend = document.getElementById('legend');
+  legend.innerHTML = ORDER.map(n=>`<span><span class="sw" style="background:${COLORS[n]}"></span>${n}</span>`).join('');
+}
+
+function renderBars(){
+  const el = document.getElementById('barChart');
+  const maxRev = Math.max(...SUMMARY.map(s=>s.TotalRevenue));
+  el.innerHTML = ORDER.map(name=>{
+    const s = SUMMARY.find(x=>x.Segmen===name);
+    const w = (s.TotalRevenue/maxRev*100).toFixed(1);
+    const dim = activeSegment && activeSegment!==name ? 'opacity:0.35' : '';
+    return `
+      <div class="bar-row" style="${dim}">
+        <div class="label">${name}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${w}%;background:${COLORS[name]}"></div></div>
+        <div class="val">${fmtGBP(s.TotalRevenue)}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderTable(){
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = ORDER.map(name=>{
+    const s = SUMMARY.find(x=>x.Segmen===name);
+    const dim = activeSegment && activeSegment!==name ? 'opacity:0.4' : '';
+    return `
+      <tr style="${dim}">
+        <td><span class="seg-tag"><span class="dot" style="background:${COLORS[name]}"></span>${name}</span></td>
+        <td>${fmtNum(s.Jumlah)}</td>
+        <td>${s.Persentase}%</td>
+        <td>${s.Recency} hari</td>
+        <td>${s.Frequency}×</td>
+        <td>${fmtGBP(s.Monetary)}</td>
+        <td>${fmtGBP(s.TotalRevenue)}</td>
+      </tr>`;
+  }).join('');
+}
+
+function renderAll(){
+  renderTickets();
+  renderScatter();
+  renderBars();
+  renderTable();
+}
+
+renderTotals();
+renderAll();
+</script>
+</body>
+</html>
